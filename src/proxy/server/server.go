@@ -36,11 +36,11 @@ import (
 )
 
 type Schema struct {
-	db string
+	db    string
 
 	nodes map[string]*backend.Node
 
-	rule *router.Router
+	rule  *router.Router
 }
 
 type BlacklistSqls struct {
@@ -55,11 +55,11 @@ const (
 )
 
 type Server struct {
-	cfg      *config.Config
-	addr     string
-	user     string
-	password string
-	db       string
+	cfg                *config.Config
+	addr               string
+	user               string
+	password           string
+	db                 string
 
 	statusIndex        int32
 	status             [2]int32
@@ -72,12 +72,12 @@ type Server struct {
 	allowipsIndex      int32
 	allowips           [2][]net.IP
 
-	counter *Counter
-	nodes   map[string]*backend.Node
-	schema  *Schema
+	counter            *Counter
+	nodes              map[string]*backend.Node
+	schema             *Schema
 
-	listener net.Listener
-	running  bool
+	listener           net.Listener
+	running            bool
 }
 
 func (s *Server) Status() string {
@@ -265,7 +265,10 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	var err error
 	netProto := "tcp"
-
+	//unix socket
+	if strings.Index(cfg.Addr, ".sock") > 0 {
+		netProto = "unix"
+	}
 	s.listener, err = net.Listen(netProto, s.addr)
 
 	if err != nil {
@@ -289,40 +292,72 @@ func (s *Server) flushCounter() {
 
 func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c := new(ClientConn)
-	tcpConn := co.(*net.TCPConn)
+	if strings.Index(s.cfg.Addr, ".sock") > 0 {
+		tcpConn := co.(*net.UnixConn)
 
-	//SetNoDelay controls whether the operating system should delay packet transmission
-	// in hopes of sending fewer packets (Nagle's algorithm).
-	// The default is true (no delay),
-	// meaning that data is sent as soon as possible after a Write.
-	//I set this option false.
-	tcpConn.SetNoDelay(false)
-	c.c = tcpConn
+		c.c = tcpConn
 
-	c.schema = s.GetSchema()
+		c.schema = s.GetSchema()
 
-	c.pkg = mysql.NewPacketIO(tcpConn)
-	c.proxy = s
+		c.pkg = mysql.NewPacketIO(tcpConn)
+		c.proxy = s
 
-	c.pkg.Sequence = 0
+		c.pkg.Sequence = 0
 
-	c.connectionId = atomic.AddUint32(&baseConnId, 1)
+		c.connectionId = atomic.AddUint32(&baseConnId, 1)
 
-	c.status = mysql.SERVER_STATUS_AUTOCOMMIT
+		c.status = mysql.SERVER_STATUS_AUTOCOMMIT
 
-	c.salt, _ = mysql.RandomBuf(20)
+		c.salt, _ = mysql.RandomBuf(20)
 
-	c.txConns = make(map[*backend.Node]*backend.BackendConn)
+		c.txConns = make(map[*backend.Node]*backend.BackendConn)
 
-	c.closed = false
+		c.closed = false
 
-	c.charset = mysql.DEFAULT_CHARSET
-	c.collation = mysql.DEFAULT_COLLATION_ID
+		c.charset = mysql.DEFAULT_CHARSET
+		c.collation = mysql.DEFAULT_COLLATION_ID
 
-	c.stmtId = 0
-	c.stmts = make(map[uint32]*Stmt)
+		c.stmtId = 0
+		c.stmts = make(map[uint32]*Stmt)
 
-	return c
+		return c
+	} else {
+		tcpConn := co.(*net.TCPConn)
+		//*net.UnixConn
+
+		//SetNoDelay controls whether the operating system should delay packet transmission
+		// in hopes of sending fewer packets (Nagle's algorithm).
+		// The default is true (no delay),
+		// meaning that data is sent as soon as possible after a Write.
+		//I set this option false.
+		tcpConn.SetNoDelay(false)
+		c.c = tcpConn
+
+		c.schema = s.GetSchema()
+
+		c.pkg = mysql.NewPacketIO(tcpConn)
+		c.proxy = s
+
+		c.pkg.Sequence = 0
+
+		c.connectionId = atomic.AddUint32(&baseConnId, 1)
+
+		c.status = mysql.SERVER_STATUS_AUTOCOMMIT
+
+		c.salt, _ = mysql.RandomBuf(20)
+
+		c.txConns = make(map[*backend.Node]*backend.BackendConn)
+
+		c.closed = false
+
+		c.charset = mysql.DEFAULT_CHARSET
+		c.collation = mysql.DEFAULT_COLLATION_ID
+
+		c.stmtId = 0
+		c.stmts = make(map[uint32]*Stmt)
+
+		return c
+	}
 }
 
 func (s *Server) onConn(c net.Conn) {
@@ -344,12 +379,14 @@ func (s *Server) onConn(c net.Conn) {
 		conn.Close()
 		s.counter.DecrClientConns()
 	}()
-
-	if allowConnect := conn.IsAllowConnect(); allowConnect == false {
-		err := mysql.NewError(mysql.ER_ACCESS_DENIED_ERROR, "ip address access denied by kingshard.")
-		conn.writeError(err)
-		conn.Close()
-		return
+	//非sock 过滤ip
+	if strings.Index(s.cfg.Addr, ".sock") == -1 {
+		if allowConnect := conn.IsAllowConnect(); allowConnect == false {
+			err := mysql.NewError(mysql.ER_ACCESS_DENIED_ERROR, "ip address access denied by kingshard.")
+			conn.writeError(err)
+			conn.Close()
+			return
+		}
 	}
 	if err := conn.Handshake(); err != nil {
 		golog.Error("server", "onConn", err.Error(), 0)
@@ -456,11 +493,11 @@ func (s *Server) DelAllowIP(v string) error {
 		ipVec2 := strings.Split(s.cfg.AllowIps, ",")
 		for i, ip := range s.allowips[1] {
 			if ip.Equal(clientIP) {
-				s.allowips[1] = append(s.allowips[1][:i], s.allowips[1][i+1:]...)
+				s.allowips[1] = append(s.allowips[1][:i], s.allowips[1][i + 1:]...)
 				atomic.StoreInt32(&s.allowipsIndex, 1)
 				for i, ip := range ipVec2 {
 					if ip == v {
-						ipVec2 = append(ipVec2[:i], ipVec2[i+1:]...)
+						ipVec2 = append(ipVec2[:i], ipVec2[i + 1:]...)
 						s.cfg.AllowIps = strings.Trim(strings.Join(ipVec2, ","), ",")
 						return nil
 					}
@@ -473,11 +510,11 @@ func (s *Server) DelAllowIP(v string) error {
 		ipVec2 := strings.Split(s.cfg.AllowIps, ",")
 		for i, ip := range s.allowips[0] {
 			if ip.Equal(clientIP) {
-				s.allowips[0] = append(s.allowips[0][:i], s.allowips[0][i+1:]...)
+				s.allowips[0] = append(s.allowips[0][:i], s.allowips[0][i + 1:]...)
 				atomic.StoreInt32(&s.allowipsIndex, 0)
 				for i, ip := range ipVec2 {
 					if ip == v {
-						ipVec2 = append(ipVec2[:i], ipVec2[i+1:]...)
+						ipVec2 = append(ipVec2[:i], ipVec2[i + 1:]...)
 						s.cfg.AllowIps = strings.Trim(strings.Join(ipVec2, ","), ",")
 						return nil
 					}
@@ -630,7 +667,7 @@ func (s *Server) DeleteSlave(node string, addr string) error {
 	for i, v1 := range s.cfg.Nodes {
 		if node == v1.Name {
 			s1 := strings.Split(v1.Slave, backend.SlaveSplit)
-			s2 := make([]string, 0, len(s1)-1)
+			s2 := make([]string, 0, len(s1) - 1)
 			for _, v2 := range s1 {
 				hostPort := strings.Split(v2, backend.WeightSplit)[0]
 				if addr != hostPort {

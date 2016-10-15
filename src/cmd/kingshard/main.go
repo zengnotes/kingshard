@@ -26,13 +26,13 @@ import (
 
 	"config"
 	"core/golog"
-	"core/hack"
+	//"core/hack"
 	"proxy/server"
 	"web"
 )
 
 var configFile *string = flag.String("config", "etc/ks.yaml", "kingshard config file")
-var logLevel *string = flag.String("log-level", "debug", "log level [debug|info|warn|error], default error")
+var logLevel *string = flag.String("log-level", "warn", "log level [debug|info|warn|error], default error")
 var version *bool = flag.Bool("v", false, "the version of kingshard")
 
 const (
@@ -41,21 +41,12 @@ const (
 	MaxLogSize = 1024 * 1024 * 1024
 )
 
-const banner string = `
-    __   _                  __                   __
-   / /__(_)___  ____ ______/ /_  ____ __________/ /
-  / //_/ / __ \/ __ \/ ___/ __ \ / __\/ ___/ __  /
- / ,< / / / / / /_/ (__  ) / / / /_/ / /  / /_/ /
-/_/|_/_/_/ /_/\__, /____/_/ /_/\__,_/_/   \__,_/
-             /____/
-`
-
 func main() {
-	fmt.Print(banner)
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
-	fmt.Printf("Git commit:%s\n", hack.Version)
-	fmt.Printf("Build time:%s\n", hack.Compile)
+	//fmt.Print(banner)
+	//fmt.Printf("Git commit:%s\n", hack.Version)
+	//fmt.Printf("Build time:%s\n", hack.Compile)
 	if *version {
 		return
 	}
@@ -78,7 +69,7 @@ func main() {
 			fmt.Printf("new log file error:%v\n", err.Error())
 			return
 		}
-		golog.GlobalSysLogger = golog.New(sysFile, golog.Lfile|golog.Ltime|golog.Llevel)
+		golog.GlobalSysLogger = golog.New(sysFile, golog.Lfile | golog.Ltime | golog.Llevel)
 
 		sqlFilePath := path.Join(cfg.LogPath, sqlLogName)
 		sqlFile, err := golog.NewRotatingFileHandler(sqlFilePath, MaxLogSize, 1)
@@ -86,7 +77,7 @@ func main() {
 			fmt.Printf("new log file error:%v\n", err.Error())
 			return
 		}
-		golog.GlobalSqlLogger = golog.New(sqlFile, golog.Lfile|golog.Ltime|golog.Llevel)
+		golog.GlobalSqlLogger = golog.New(sqlFile, golog.Lfile | golog.Ltime | golog.Llevel)
 	}
 
 	if *logLevel != "" {
@@ -129,6 +120,7 @@ func main() {
 				golog.GlobalSysLogger.Close()
 				golog.GlobalSqlLogger.Close()
 				svr.Close()
+				os.Remove(cfg.Addr)
 			} else if sig == syscall.SIGPIPE {
 				golog.Info("main", "main", "Ignore broken pipe signal", 0)
 			}

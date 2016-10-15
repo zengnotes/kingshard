@@ -1,5 +1,6 @@
 # server listen addr
-addr : 0.0.0.0:9696
+##addr : 0.0.0.0:9696
+addr : /tmp/mysql-proxy.sock
 
 # server user and password
 user :  root

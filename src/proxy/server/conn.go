@@ -329,6 +329,8 @@ func (c *ClientConn) dispatch(data []byte) error {
 		return c.handleStmtReset(data)
 	case mysql.COM_SET_OPTION:
 		return c.writeEOF(0)
+	case mysql.COM_CHANGE_USER:
+		return c.writePacket(data)
 	default:
 		msg := fmt.Sprintf("command %d not supported now", cmd)
 		golog.Error("ClientConn", "dispatch", msg, 0)
