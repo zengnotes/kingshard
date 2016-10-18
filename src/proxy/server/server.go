@@ -222,6 +222,7 @@ func (s *Server) parseSchema() error {
 	return nil
 }
 
+//mian
 func NewServer(cfg *config.Config) (*Server, error) {
 	s := new(Server)
 
@@ -269,6 +270,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if strings.Index(cfg.Addr, ".sock") > 0 {
 		netProto = "unix"
 	}
+	//监听
 	s.listener, err = net.Listen(netProto, s.addr)
 
 	if err != nil {
@@ -361,7 +363,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 }
 
 func (s *Server) onConn(c net.Conn) {
-	s.counter.IncrClientConns()
+	s.counter.IncrClientConns() //统计
 	conn := s.newClientConn(c) //新建一个conn
 
 	defer func() {
@@ -388,6 +390,7 @@ func (s *Server) onConn(c net.Conn) {
 			return
 		}
 	}
+	//处理对应的命令
 	if err := conn.Handshake(); err != nil {
 		golog.Error("server", "onConn", err.Error(), 0)
 		c.Close()
@@ -627,18 +630,19 @@ func (s *Server) SaveProxyConfig() error {
 }
 
 func (s *Server) Run() error {
+	//方便退出
 	s.running = true
 
 	// flush counter
 	go s.flushCounter()
-
+	//监听消息
 	for s.running {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			golog.Error("server", "Run", err.Error(), 0)
 			continue
 		}
-
+		//处理 packet
 		go s.onConn(conn)
 	}
 

@@ -5,4 +5,5 @@ y.output
 .idea
 *.iml
 .vscode/
+etc
 *.yaml

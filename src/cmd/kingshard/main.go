@@ -31,8 +31,8 @@ import (
 	"web"
 )
 
-var configFile *string = flag.String("config", "etc/ks.yaml", "kingshard config file")
-var logLevel *string = flag.String("log-level", "warn", "log level [debug|info|warn|error], default error")
+var configFile *string = flag.String("c", "etc/ks.yaml", "kingshard config file")
+var logLevel *string = flag.String("l", "warn", "log level [debug|info|warn|error], default error")
 var version *bool = flag.Bool("v", false, "the version of kingshard")
 
 const (
