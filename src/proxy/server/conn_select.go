@@ -149,7 +149,7 @@ func (c *ClientConn) mergeSelectResult(rs []*mysql.Result, stmt *sqlparser.Selec
 	}
 
 	c.sortSelectResult(r.Resultset, stmt)
-	//to do, add log here, sort may error because order by key not exist in resultset fields
+	//TODO, add log here, sort may error because order by key not exist in resultset fields
 
 	if err := c.limitSelectResult(r.Resultset, stmt); err != nil {
 		return err
