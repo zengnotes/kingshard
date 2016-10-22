@@ -38,7 +38,7 @@ cd $ProjectPath
 else
 cd $ProjectPath/bin
 mkdir etc
-cp -r ../src/etc/* ./etc/
+cp -r ../src/etc/ks* ./etc/
 mkdir log
 ##cp -rf ../src/public public
 ./main

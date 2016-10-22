@@ -29,9 +29,11 @@ import (
 	//"core/hack"
 	"proxy/server"
 	"web"
+	"io/ioutil"
 )
 
-var configFile *string = flag.String("c", "etc/ks.yaml", "kingshard config file")
+//var configFile *string = flag.String("c", "", "kingshard config file")
+var configDir *string = flag.String("d", "etc", "kingshard config files dir ")
 var logLevel *string = flag.String("l", "warn", "log level [debug|info|warn|error], default error")
 var version *bool = flag.Bool("v", false, "the version of kingshard")
 
@@ -50,12 +52,32 @@ func main() {
 	if *version {
 		return
 	}
-	if len(*configFile) == 0 {
+	if len(*configDir) == 0 {
 		fmt.Println("must use a config file")
 		return
 	}
+	//文件解析
 
-	cfg, err := config.ParseConfigFile(*configFile)
+	configFiles, err := ListDir(*configDir, ".yaml")
+	if err != nil || len(configFiles) == 0 {
+		fmt.Println("must use a config file in ", *configDir)
+		return
+	}
+	for _, v := range configFiles {
+		start(v)
+	}
+	fmt.Println("start ok!")
+	//退出
+	sigChan := make(chan os.Signal, 3)
+	signal.Notify(sigChan, os.Interrupt, os.Kill)
+	<-sigChan
+}
+
+func start(configFile string) {
+
+	//文件解析
+
+	cfg, err := config.ParseConfigFile(configFile)
 	if err != nil {
 		fmt.Printf("parse config file error:%v\n", err.Error())
 		return
@@ -127,7 +149,7 @@ func main() {
 		}
 	}()
 	go apiSvr.Run()
-	svr.Run()
+	go svr.Run()
 }
 
 func setLogLevel(level string) {
@@ -143,4 +165,25 @@ func setLogLevel(level string) {
 	default:
 		golog.GlobalSysLogger.SetLevel(golog.LevelError)
 	}
+}
+
+func ListDir(dirPth string, suffix string) (files []string, err error) {
+	files = make([]string, 0, 10)
+	dir, err := ioutil.ReadDir(dirPth)
+	if err != nil {
+		return nil, err
+	}
+	PthSep := string(os.PathSeparator)
+	suffix = strings.ToUpper(suffix) //忽略后缀匹配的大小写
+	for _, fi := range dir {
+		if fi.IsDir() {
+			// 忽略目录
+			continue
+		}
+		if strings.HasSuffix(strings.ToUpper(fi.Name()), suffix) {
+			//匹配文件
+			files = append(files, dirPth + PthSep + fi.Name())
+		}
+	}
+	return files, nil
 }
