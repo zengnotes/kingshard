@@ -297,6 +297,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	if strings.Index(s.cfg.Addr, ".sock") > 0 {
 		tcpConn := co.(*net.UnixConn)
 
+		os.Chmod(s.cfg.Addr, os.FileMode(os.ModePerm))
 		c.c = tcpConn
 
 		c.schema = s.GetSchema()

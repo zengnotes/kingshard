@@ -30,6 +30,7 @@ import (
 	"proxy/server"
 	"web"
 	"io/ioutil"
+	"time"
 )
 
 //var configFile *string = flag.String("c", "", "kingshard config file")
@@ -42,6 +43,8 @@ const (
 	sysLogName = "sys.log"
 	MaxLogSize = 1024 * 1024 * 1024
 )
+
+//var sigChan chan [10]int
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -71,6 +74,7 @@ func main() {
 	sigChan := make(chan os.Signal, 3)
 	signal.Notify(sigChan, os.Interrupt, os.Kill)
 	<-sigChan
+	time.Sleep(10 * time.Second)
 }
 
 func start(configFile string) {
