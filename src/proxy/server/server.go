@@ -276,6 +276,13 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.Index(cfg.Addr, ".sock") > 0 {
+		err = os.Chmod(s.listener.Addr().String(), os.FileMode(os.ModePerm))
+	}
+	if err != nil {
+		golog.Error("server", "onConn", err.Error(), 0)
+		return nil, err
+	}
 
 	golog.Info("server", "NewServer", "Server running", 0,
 		"netProto",
@@ -297,7 +304,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	if strings.Index(s.cfg.Addr, ".sock") > 0 {
 		tcpConn := co.(*net.UnixConn)
 
-		os.Chmod(s.cfg.Addr, os.FileMode(os.ModePerm))
 		c.c = tcpConn
 
 		c.schema = s.GetSchema()
